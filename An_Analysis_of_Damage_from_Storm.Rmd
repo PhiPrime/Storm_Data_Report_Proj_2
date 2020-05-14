@@ -15,7 +15,164 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data Processing  
 
 
+```{r}
+temp <- tempfile()
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+              temp, mode = )
+data <- read.csv(temp)
+unlink(temp)
+```
+
+```{r message = FALSE}
+library(tidyverse)
+```
+```{r}
+#Filter out relevant columns
+revData <- select(data, STATE__:EVTYPE, F:CROPDMGEXP, REMARKS, REFNUM)
+revData <- revData %>% 
+        mutate(BGN_TIME = as.POSIXct(strptime(paste(
+                sub("0:00:00", "", BGN_DATE), BGN_TIME), 
+                                   format = "%m/%d/%Y %H%M"))) %>%
+        select(-BGN_DATE)
+```
+
+
+The following code block is a set of logicals that will filter EVTYPE to be either one of the forty-eight offical Event Names or "Other", if the EVTYPE can not be determined. In the case of an EVTYPE that had multiple events associated with it the Event Name will be assigned that would be the likely cause of damage (i.e. blizzards can cause avalanches so if EVTYPE is "BLIZZARD/AVALANCHE" it will be assigned the Event Name "Blizzard")
+```{r}
+correctedEvents <- revData %>% mutate(EVTYPE = case_when(
+        grepl("low tide|blow-out", EVTYPE, TRUE) ~ 
+                                                                "Astronomical Low Tide",
+        grepl("blizzard", EVTYPE, ignore.case=TRUE) ~ 
+                                                                "Blizzard",
+        grepl("avalanc(h)?e", EVTYPE, TRUE) ~ 
+                                                                "Avalanche", 
+        grepl("coast", EVTYPE, TRUE) & grepl("flood|surge", EVTYPE, TRUE) ~
+                                                                "Coastal Flood",
+        grepl("cold|chill|low temp|cool|record low|hypo", EVTYPE, TRUE) &
+               !grepl("snow|extreme|excessive|funnel|tornado", EVTYPE, TRUE) ~
+                                                                "Cold/Wind Chill",
+        grepl("debris|slide|(urban(.*)sm)|slump|ero", EVTYPE, TRUE) & 
+                !grepl("flood|stream", EVTYPE, TRUE) ~ 
+                                                                "Debris Flow",
+        grepl("fog|wall", EVTYPE, TRUE) & 
+                !grepl("freez|funnel", EVTYPE, TRUE) ~ 
+                                                                "Dense Fog",
+        grepl("smoke", EVTYPE, TRUE) ~ 
+                                                                "Dense Smoke",
+        grepl("drought|dry|(below(.*)pre)", EVTYPE, TRUE) & !grepl("heat|micro", EVTYPE, TRUE) ~
+                                                                "Drought",
+        grepl("dev[ei]l|gustn|landsp", EVTYPE, TRUE) ~ 
+                                                                "Dust Devil",
+        grepl("dust", EVTYPE, TRUE) ~ 
+                                                                "Dust Storm",
+        grepl("((excessive)|(extreme)) heat", EVTYPE, TRUE) ~
+                                                                "Excessive Heat",
+        (grepl("excessive|extreme", EVTYPE, TRUE) &
+                grepl("cold|chil(l)?", EVTYPE, TRUE))|
+                grepl("wind chill", EVTYPE, TRUE) ~
+                                                                "Extreme Cold/Wind Chill",
+        grepl("flash|rapid", EVTYPE, TRUE) ~ 
+                                                                "Flash Flood",
+        grepl("flood|stream|(high water)|(dam )|jam|drown", EVTYPE, TRUE) & 
+                !grepl("lake", EVTYPE, TRUE) ~
+                                                                "Flood",
+        grepl("frost|freeze", EVTYPE, TRUE) ~ 
+                                                                "Frost/Freeze",
+        grepl("cloud|funnel", EVTYPE, TRUE) & 
+                !grepl("waterspout|hail|thunder", EVTYPE, TRUE) ~ 
+                                                                "Funnel Cloud",
+        grepl("freezing fog", EVTYPE, TRUE) ~ 
+                                                                "Freezing Fog",
+        grepl("hail", EVTYPE, TRUE) & !grepl("tornado|marine", EVTYPE, TRUE) ~
+                                                                "Hail",
+        grepl("heat|hot|high temp|warm|record high|hyper", EVTYPE, TRUE) ~ 
+                                                                "Heat",
+        grepl("rain|((heavy|normal|excessive|record) prec)|wetn|(heavy show)", EVTYPE, TRUE) &
+                !grepl("freez|snow|thunder|lightning|tstm|below|mix", EVTYPE, TRUE) ~
+                                                                "Heavy Rain",
+        grepl("snow", EVTYPE, TRUE) &
+                !grepl("sleet|lake(-)?effect|freez|drought|ice",
+                       EVTYPE, TRUE) ~ 
+                                                                "Heavy Snow",
+        grepl("surf|(high sea)|(high wav)", EVTYPE, TRUE) & !grepl("flood|rip", EVTYPE, TRUE) ~
+                                                                "High Surf",
+        (grepl("wind|microburst|downburst", EVTYPE, TRUE) & !grepl(
+  "chill|thunder|tstm|hurricane|lightning|sea|winter|snow|coast|flood|marine|wet",
+                                EVTYPE, TRUE)) |
+          grepl("non(.*)wind", EVTYPE, TRUE) ~ 
+                                                                "High Wind",
+        grepl("hurricane|typhoon", EVTYPE, TRUE) ~ 
+                                                                "Hurricane (Typhoon)",
+        grepl("(ice (storm|pellets))|glaze", EVTYPE, TRUE)|
+          grepl("^ice$", EVTYPE, TRUE) ~ 
+                                                                "Ice Storm",
+        grepl("lake[-| ]effect", EVTYPE, TRUE) ~ 
+                                                                "Lake-Effect Snow",
+        grepl("lake(.*)?flood", EVTYPE, TRUE) ~ 
+                                                                "Lakeshore Flood",
+        grepl("li(.*)[^zd]ing|thunder|tstm", EVTYPE, TRUE) &
+          !grepl("wind", EVTYPE, TRUE) ~ 
+                                                                "Lightning",
+        grepl("marine hail", EVTYPE, TRUE) ~ 
+                                                                "Marine Hail",
+        grepl("(marine high)|(wind(.*?)sea)|(coast(.*)storm)|mishap|((heavy)|(rough) sea)", 
+              EVTYPE, TRUE) ~ 
+                                                                "Marine High Wind",
+        grepl("marine strong", EVTYPE, TRUE) ~ 
+                                                                "Marine Strong Wind",
+        grepl("marine (thunderstorm|tstm)", EVTYPE, TRUE) ~ 
+                                                                "Marine Thunderstorm Wind",
+        grepl("rip", EVTYPE, TRUE) ~ 
+                                                                "Rip Current",
+        grepl("seiche", EVTYPE, TRUE) ~ 
+                                                                "Seiche",
+        grepl("(sleet)|(freezing rain)", EVTYPE, TRUE) ~ 
+                                                                "Sleet",
+        grepl("surge|(high (tide|sea))|swell|acci|rogue", EVTYPE, TRUE) ~ 
+                                                                "Storm Surge/Tide",
+        grepl("(strong wind)|turb", EVTYPE, TRUE) ~ 
+                                                                "Strong Wind",
+        grepl("(((thunder)|(tstm)|(light))(.*)?wind)|(wet micro)", EVTYPE, TRUE) &
+                       !grepl("non|tornado|marine", EVTYPE, TRUE) ~ 
+                                                                "Thunderstorm Wind",
+        grepl("torn", EVTYPE, TRUE) & !grepl("waterspout", EVTYPE, TRUE) ~
+                                                                "Tornado",
+        grepl("depression", EVTYPE, TRUE) ~ 
+                                                                "Tropical Depression",
+        grepl("tropical storm", EVTYPE, TRUE) ~ 
+                                                                "Tropical Storm",
+        grepl("tsunami", EVTYPE, TRUE) ~ 
+                                                                "Tsunami",
+        grepl("volcan", EVTYPE, TRUE) ~ 
+                                                                "Volcanic Ash",
+        grepl("wa(.*)spo", EVTYPE, TRUE) ~ 
+                                                                "Waterspout",
+        grepl("fire", EVTYPE, TRUE) & !grepl("light", EVTYPE, TRUE) ~ 
+                                                                "Wildfire",
+        grepl("(winter weather)|icy|black|(ice(.*)road)|(ice floe)", EVTYPE, TRUE) ~ 
+                                                                "Winter Weather",
+        #Any winter mix that was bypassed previously had several aspects 
+        #to it and will be grouped in with "Winter Storm"
+        grepl("winter|snow|hail|sleet|freezing|mix", EVTYPE, TRUE) ~
+                                                                "Winter Storm",
+        TRUE ~ "Other"))
+```
+
+```{r}
+#Group by event
+groupedData <- group_by(correctedEvents, EVTYPE)
+```
+
+
 ## Most Harmful Events to Population Health  
+
+```{r}
+harmSummary <- groupedData %>% summarize(
+                         totalFatalities = sum(FATALITIES), 
+                         totalInjuries   = sum(INJURIES)) %>%
+        arrange(desc(totalFatalities), desc(totalInjuries))
+harmSummary
+```
 
 
 ## Events Causing Greatest Economic Consequences  
