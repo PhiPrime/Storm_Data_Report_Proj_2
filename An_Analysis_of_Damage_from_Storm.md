@@ -7,9 +7,7 @@ output:
                 keep_md: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
 
 # Synopsis  
 In this report we look at what storms have caused the greatest impact in the past. We address the health impacts of injuries and fatalities, and we also address the economic impacts of crops and properties. From these data we found that the greatest overall impact in both categories can be attributed to floods, tornadoes, and hurricanes. Other events of concern are excessive heat and general heat which caused a large impact to health. Drought and storm surges caused a large amount of crop and property damage as well.  
@@ -18,7 +16,8 @@ In this report we look at what storms have caused the greatest impact in the pas
 
 ## Load Data
 The storm data comes from the National Oceanic and Atmospheric Administration (NOAA) and will be downloaded now.  
-```{r}
+
+```r
 temp <- tempfile()
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
               temp, mode = )
@@ -27,7 +26,8 @@ unlink(temp)
 ```
 
 ## Clean Data
-```{r message = FALSE}
+
+```r
 library(tidyverse)
 library(reshape2)
 library(ggpubr)
@@ -35,7 +35,8 @@ library(png)
 ```
 
 Since we're interested in harm and economic impact we can filter out those relevant columns, this will help speed up the later analysis.  
-```{r}
+
+```r
 revData <- select(data, STATE__:EVTYPE, F:CROPDMGEXP, REMARKS, REFNUM)
 revData <- revData %>% 
         mutate(BGN_TIME = as.POSIXct(strptime(paste(
@@ -46,7 +47,8 @@ revData <- revData %>%
 
 
 The following code block is a set of logicals that will filter EVTYPE to be either one of the forty-eight official Event Names or "Other", if the EVTYPE can not be determined. In the case of an EVTYPE that had multiple events associated with it the Event Name will be assigned that would be the likely cause of damage (i.e. blizzards can cause avalanches so if EVTYPE is "BLIZZARD/AVALANCHE" it will be assigned the Event Name "Blizzard").
-```{r}
+
+```r
 correctedEvents <- revData %>% mutate(EVTYPE = case_when(
         grepl("low tide|blow-out", EVTYPE, TRUE) ~ 
                                                                 "Astronomical Low Tide",
@@ -167,7 +169,8 @@ correctedEvents <- revData %>% mutate(EVTYPE = case_when(
 ```
 
 The NOAA started recording events in 1950, however they only recorded tornadoes at that time and started to add more events over the years. By 1996 they recorded all 48 types of events so in order to get a balanced look at all climatic events we'll analyze from 1996 to November of 2012 (The end of the readings).
-```{r}
+
+```r
 timeperiod <- c("1950-1995", "1996-2011(Nov)")
 groupedData <- group_by(correctedEvents, 
                   Time.Period = ifelse((BGN_TIME <= strptime("1995", format = "%Y")), 
@@ -179,36 +182,51 @@ groupedData <- group_by(groupedData, Event.Name)
 ```
 
 Some of the original data returned `NA`s when adjusting the time variable earlier, let's look at how those times were entered and what dates they were recorded.
-```{r}
+
+```r
 erredData <- data[is.na(revData$BGN_TIME),]
 data.frame(Time = erredData$BGN_TIME, Date = strptime(erredData$BGN_DATE, format = "%m/%d/%Y"))
 ```
+
+```
+##   Time       Date
+## 1 1990 1993-01-12
+## 2 9999 1993-12-25
+## 3 2090 1994-06-29
+## 4 1580 1995-08-16
+## 5 0572 1995-08-28
+## 6 13O0 1995-05-24
+```
   
 It can be seen here the times were invalid either because the minutes were greater than 60 or the letter "O" was entered instead of a "0". Either way, these dates are outside of our range of interest so they can be safely discarded.  
-```{r}
+
+```r
 groupedData <- groupedData[!is.na(groupedData$BGN_TIME),]
 ```
 
 
 ## Most Harmful Events to Population Health  
 
-```{r}
+
+```r
 summary <- groupedData %>% summarize(
                          totalFatalities = sum(FATALITIES), 
                          totalInjuries   = sum(INJURIES))
 ```
 
 Since we're only interested in the most harmful events we're going to look at the top 15 events for both fatalities and injuries.
-```{r}
+
+```r
 fatalities <- arrange(summary, desc(totalFatalities))[1:15,] %>% 
         select(Event.Name, Total = totalFatalities)
 injuries   <- arrange(summary, desc(totalInjuries))[1:15,] %>% 
         select(Event.Name, Total = totalInjuries)
 ```
-These subsets make up `r round((sum(fatalities$Total)/sum(summary$totalFatalities))*100, 1)`% of fatalities and `r round((sum(injuries$Total)/sum(summary$totalInjuries))*100, 1)`% of injuries.
+These subsets make up 91.3% of fatalities and 94.5% of injuries.
 
 
-```{r results = "hide"}
+
+```r
 fatalPlot <- ggplot(fatalities, aes(Total, reorder(Event.Name, Total))) + 
         geom_bar(stat = "identity") +
         xlab("Total Fatalities") +
@@ -231,12 +249,13 @@ dev.off()
 
 ![Harm Plots](./Images/harm_plot.png)
   
-From this figure we can see the most fatalities come from `r paste(fatalities$Event.Name[1], fatalities$Event.Name[2], paste0("and ", fatalities$Event.Name[3]), sep = ", ")` types of events. We can also see the most injuries come from `r paste(injuries$Event.Name[1], injuries$Event.Name[2], paste0("and ", injuries$Event.Name[3]), sep = ", ")` types of events.
+From this figure we can see the most fatalities come from Excessive Heat, Tornado, and Heat types of events. We can also see the most injuries come from Tornado, Flood, and Excessive Heat types of events.
 
 
 ## Events Causing Greatest Economic Consequences  
 CROPDMGEXP and PROPDMGEXP indicate the scale of U.S. dollars that the respective damage is recorded on (H for hundred, K for thousand, M for million, and B for billion). So we'll add a numeric representation of this value to use when summing the damages.  
-```{r}
+
+```r
 groupedData <- groupedData %>% mutate(CropMultiple = case_when(
         toupper(CROPDMGEXP) == "H" ~ 10^2,
         toupper(CROPDMGEXP) == "K" ~ 10^3,
@@ -253,22 +272,25 @@ groupedData <- groupedData %>% mutate(CropMultiple = case_when(
 ```
 
 We'll now create a summary of the damages, grouped by each event type.  
-```{r}
+
+```r
 DMGsummary <- groupedData %>% summarize(
                          cropDamages = sum(CROPDMG*CropMultiple, na.rm = TRUE)/10^9, 
                          propDamages = sum(PROPDMG*PropMultiple, na.rm = TRUE)/10^9)
 ```
 
 Since we're only interested in the greatest economic consequences we, again, are going to look at the top 15 events for both property and crop damages.  
-```{r}
+
+```r
 crop <- arrange(DMGsummary, desc(cropDamages))[1:15,] %>% 
         select(Event.Name, Total = cropDamages)
 prop   <- arrange(DMGsummary, desc(propDamages))[1:15,] %>% 
         select(Event.Name, Total = propDamages)
 ```
-These subsets make up `r round((sum(crop$Total)/sum(DMGsummary$cropDamages))*100, 1)`% of crop damages and `r round((sum(prop$Total)/sum(DMGsummary$propDamages))*100, 1)`% of property damages.  
+These subsets make up 99.3% of crop damages and 99.4% of property damages.  
 
-```{r results = "hide"}
+
+```r
 cropPlot <- ggplot(crop, aes(Total, reorder(Event.Name, Total))) + 
         geom_bar(stat = "identity") +
         xlab("Total Crop Damages (Billion USD)") +
@@ -291,11 +313,12 @@ dev.off()
 
 ![Economic Impact Plots](./Images/econ_impact_plot.png)
   
-From this figure we can see the most crop damage comes from `r paste(crop$Event.Name[1], crop$Event.Name[2], paste0("and ", crop$Event.Name[3]), sep = ", ")` types of events. We can also see the most property damage comes from `r paste(prop$Event.Name[1], prop$Event.Name[2], paste0("and ", prop$Event.Name[3]), sep = ", ")` types of events.
+From this figure we can see the most crop damage comes from Drought, Hurricane (Typhoon), and Flood types of events. We can also see the most property damage comes from Flood, Hurricane (Typhoon), and Storm Surge/Tide types of events.
 
 # Results  
 To summarize these data and see which climatic event is most influential to our citizen's health and economy we're going to look at the sum of the relative frequency of each group's top 15 events.  
-```{r results = "hide", message = FALSE}
+
+```r
 total <- data.frame(fatalities = sum(summary$totalFatalities),
                     injuries   = sum(summary$totalInjuries),
                     cropDMG    = sum(DMGsummary$cropDamages),
@@ -332,7 +355,7 @@ dev.off()
 ```
 ![Overview of Impact](./Images/overview_plot.png)
   
-From this plot we can see the largest impacts come from `r paste(freqSummary$Event[1], freqSummary$Event[2], paste0("and ", freqSummary$Event[3]), sep = ", ")` types of events.
+From this plot we can see the largest impacts come from Flood, Tornado, and Hurricane (Typhoon) types of events.
 
 
 
