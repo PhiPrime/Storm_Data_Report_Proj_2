@@ -1,5 +1,5 @@
 # Storm_Data_Report_Proj_2
-
+**[This analysis can also be found on RPubs](https://rpubs.com/PhiPrime/StormsProj)**
 ##Introduction
 This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. This project is the second project for the reproducible research course on Coursera (https://www.coursera.org/learn/reproducible-research/home/welcome)
 
@@ -8,7 +8,7 @@ An example of an analysis by Peng can be **[found on RPubs](https://www.rpubs.co
 
 The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file here:  
 
-* **[Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) [47Mb]
+* **[Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)** [47Mb]
 
 There is also some documentation of the database available, where you will find how some of the variables are constructed/defined:  
 * **[National Weather Service Storm Data Documentation](./References/repdata_peer2_doc_pd01016005curr.pdf)**  
